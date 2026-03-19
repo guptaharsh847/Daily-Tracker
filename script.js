@@ -20,10 +20,10 @@ function showToast(message, type = "info") {
 let tasks = [];
 let answers = {};
 
-// Initialize input with today's date for user convenience
-const tomorrow = new Date();
-tomorrow.setDate(tomorrow.getDate() + 1);
-document.getElementById("date").valueAsDate = tomorrow;
+// Initialize input with yesterday's date for user convenience
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
+document.getElementById("date").valueAsDate = yesterday;
 
 // --- Navigation ---
 const navDailyBtn = document.getElementById("navDaily");
