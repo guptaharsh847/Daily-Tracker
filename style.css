@@ -370,3 +370,29 @@ textarea {
 .toast.info {
   background-color: #3b82f6;
 }
+
+/* Install Prompt */
+.install-prompt {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 400px;
+  background: var(--card-bg);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  z-index: 999;
+  text-align: center;
+}
+
+.install-prompt p {
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+.install-prompt-actions {
+  display: flex;
+  gap: 10px;
+}

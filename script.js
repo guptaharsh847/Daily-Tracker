@@ -449,5 +449,46 @@ document.getElementById("shareBtn").addEventListener("click", async () => {
   }
 });
 
+// --- PWA Install Prompt & Service Worker ---
+let deferredPrompt;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  // Prevent the mini-infobar from appearing on mobile
+  e.preventDefault();
+  // Stash the event so it can be triggered later.
+  deferredPrompt = e;
+  // Show the custom install prompt
+  const installPrompt = document.getElementById("installPrompt");
+  if (installPrompt) {
+    installPrompt.style.display = "block";
+  }
+});
+
+document.getElementById("installBtn")?.addEventListener("click", async () => {
+  const installPrompt = document.getElementById("installPrompt");
+  if (installPrompt) installPrompt.style.display = "none";
+
+  if (deferredPrompt) {
+    // Show the native install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    // We've used the prompt, and can't use it again, throw it away
+    deferredPrompt = null;
+  }
+});
+
+document.getElementById("cancelInstallBtn")?.addEventListener("click", () => {
+  const installPrompt = document.getElementById("installPrompt");
+  if (installPrompt) installPrompt.style.display = "none";
+});
+
+// Register Service Worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js");
+  });
+}
+
 // Initialize application
 load();

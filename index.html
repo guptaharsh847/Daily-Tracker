@@ -151,6 +151,30 @@
 
     <div id="toastContainer"></div>
 
+    <!-- Custom Install Prompt -->
+    <div id="installPrompt" class="install-prompt" style="display: none">
+      <div class="install-prompt-content">
+        <p>Install Daily Tracker for a better experience?</p>
+        <div class="install-prompt-actions">
+          <button id="installBtn" class="btn btn-submit" style="padding: 8px">
+            Install
+          </button>
+          <button
+            id="cancelInstallBtn"
+            class="btn"
+            style="
+              padding: 8px;
+              background: transparent;
+              border: 1px solid var(--primary);
+              color: var(--text-main);
+            "
+          >
+            Not Now
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="script.js"></script>
   </body>
 </html>
