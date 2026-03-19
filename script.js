@@ -1,11 +1,29 @@
 const API =
   "https://script.google.com/macros/s/AKfycbzafqfzakmV-Mtr8UIMx8XAYUQv0W7cupuwEtYyMZFtF3U-RytFFmlROTSyRj79ffr4_g/exec";
 
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = "toast-out 0.5s ease-out forwards";
+    toast.addEventListener("animationend", () => {
+      toast.remove();
+    });
+  }, 3000);
+}
+
 let tasks = [];
 let answers = {};
 
 // Initialize input with today's date for user convenience
-document.getElementById("date").valueAsDate = new Date();
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+document.getElementById("date").valueAsDate = tomorrow;
 
 // --- Navigation ---
 const navDailyBtn = document.getElementById("navDaily");
@@ -70,8 +88,16 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
   const btn = document.getElementById("submitBtn");
 
   if (!date) {
-    alert("Please select a date first.");
+    showToast("Please select a date first.", "failure");
     return;
+  }
+
+  if (activeTracker === "sadhana") {
+    const sadhanaForm = document.getElementById("sadhanaForm");
+    if (!sadhanaForm.checkValidity()) {
+      sadhanaForm.reportValidity();
+      return; // Stop execution if validation fails
+    }
   }
 
   btn.disabled = true;
@@ -102,55 +128,299 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    alert("Saved Successfully! ✅");
+    showToast("Saved Successfully!", "success");
     if (activeTracker === "sadhana") {
       document.getElementById("sadhanaForm").reset();
     }
   } catch (error) {
-    alert("Error saving data ❌");
+    showToast("Error saving data.", "failure");
   } finally {
     btn.disabled = false;
     btn.textContent = "Submit ✅";
   }
 });
 
+// Helper to format date safely without timezone shifting issues
+const formatDateIndian = (dateString) => {
+  if (!dateString) return "";
+  const [year, month, day] = dateString.split("-");
+  const dateObj = new Date(year, month - 1, day);
+  return dateObj.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+// Helper to format time to 12-hour AM/PM
+const formatTime12Hour = (timeString) => {
+  if (!timeString || !timeString.includes(":")) return timeString;
+
+  // Handle full ISO date strings returned by Google Sheets
+  if (
+    typeof timeString === "string" &&
+    timeString.includes("T") &&
+    timeString.length > 15
+  ) {
+    const d = new Date(timeString);
+    if (!isNaN(d.getTime())) {
+      let hours = d.getHours();
+      const minutes = d.getMinutes().toString().padStart(2, "0");
+      const seconds = d.getSeconds().toString().padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      return `${hours}:${minutes}:${seconds} ${ampm}`;
+    }
+  }
+
+  // Fallback to gracefully clean up raw time strings like "15:07:50.000Z"
+  let timeVal = timeString.toString();
+  const timeParts = timeVal.split(":");
+  let hours = parseInt(timeParts[0], 10);
+  const minutes = timeParts[1].substring(0, 2);
+  const secondsStr = timeParts[2]
+    ? timeParts[2].split(".")[0].replace("Z", "")
+    : null;
+  const seconds = secondsStr !== null ? parseInt(secondsStr, 10) : null;
+
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12; // Hour '0' should be '12'
+
+  let formattedTime = `${hours}:${minutes}`;
+  if (seconds !== null && !isNaN(seconds)) {
+    formattedTime += `:${seconds.toString().padStart(2, "0")}`;
+  }
+  return `${formattedTime} ${ampm}`;
+};
+
+document.getElementById("viewBtn").addEventListener("click", async () => {
+  const date = document.getElementById("date").value;
+  const btn = document.getElementById("viewBtn");
+
+  if (!date) {
+    showToast("Please select a date to view.", "failure");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Loading... ⏳";
+
+  // Factor in the 1-day offset for Sadhana exactly like the share button
+  const selectedDate = new Date(date + "T00:00:00");
+  if (activeTracker === "sadhana") {
+    selectedDate.setDate(selectedDate.getDate() - 1);
+  }
+  const year = selectedDate.getFullYear();
+  const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(selectedDate.getDate()).padStart(2, "0");
+  const dateToSend = `${year}-${month}-${day}`;
+
+  const finalDateToFetch = activeTracker === "sadhana" ? dateToSend : date;
+
+  try {
+    const res = await fetch(
+      `${API}?action=getData&tracker=${activeTracker}&date=${finalDateToFetch}`,
+    );
+    const response = await res.json();
+
+    if (response.status === "not_found") {
+      showToast("No data found for this date.", "info");
+      return;
+    }
+
+    if (activeTracker === "daily") {
+      response.data.tasks.forEach((t) => {
+        answers[t.name] = t.val === "Yes";
+      });
+      // Re-render tasks to update sliders
+      const div = document.getElementById("tasks");
+      let htmlContent = "";
+      tasks.forEach((t) => {
+        const isChecked = answers[t[0]] ? "checked" : "";
+        htmlContent += `
+          <div class="card">
+            <span class="task-name">${t[0]}</span>
+            <label class="switch">
+              <input type="checkbox" onchange="setVal('${t[0]}', this.checked)" ${isChecked}>
+              <span class="slider"></span>
+            </label>
+          </div>
+        `;
+      });
+      div.innerHTML = htmlContent;
+    } else {
+      // Fill sadhana form inputs
+      const data = response.data;
+      const fields = [
+        "wakeUp",
+        "sleep",
+        "rounds",
+        "chantTime",
+        "studyTime",
+        "readingTime",
+        "bookName",
+        "lectureTime",
+        "lectureName",
+        "remark",
+      ];
+
+      fields.forEach((field) => {
+        if (
+          document.getElementById(field) &&
+          data[field] !== undefined &&
+          data[field] !== ""
+        ) {
+          let val = data[field];
+          // Safely handle timestamp values that Sheets might return for times
+          if (
+            (field === "wakeUp" ||
+              field === "sleep" ||
+              field === "chantTime") &&
+            typeof val === "string" &&
+            val.includes("T")
+          ) {
+            const d = new Date(val);
+            val = d.toTimeString().split(" ")[0]; // Convert full ISO string to HH:MM:SS
+          }
+          document.getElementById(field).value = val;
+        }
+      });
+    }
+    showToast("Data loaded successfully!", "success");
+  } catch (error) {
+    showToast("Error viewing data.", "failure");
+    console.error(error);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "View Data 👁️";
+  }
+});
+
+/* --- TEMPORARILY DISABLED EXCEL DOWNLOAD ---
+document.getElementById("downloadBtn").addEventListener("click", async () => {
+  const startDate = document.getElementById("startDate").value;
+  const endDate = document.getElementById("endDate").value;
+  if (!startDate || !endDate) {
+    alert("Please select both start and end dates.");
+    return;
+  }
+
+  const btn = document.getElementById("downloadBtn");
+  btn.disabled = true;
+  btn.textContent = "Generating... ⏳";
+
+  try {
+    const res = await fetch(`${API}?action=getAllSadhana`);
+    const response = await res.json();
+
+    if (response.status === "success" && response.data) {
+      const rows = response.data;
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+
+      const start = new Date(startDate + "T00:00:00");
+      const end = new Date(endDate + "T00:00:00");
+
+      // Filter records between the two dates
+      const filtered = dataRows.filter((row) => {
+        if (!row[0]) return false;
+        const rowDate = new Date(row[0]);
+        return rowDate >= start && rowDate <= end;
+      });
+
+      if (filtered.length === 0) {
+        alert("No data found for this date range.");
+        return;
+      }
+
+      // Convert to CSV
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += headers.join(",") + "\n";
+      filtered.forEach((row) => {
+        const safeRow = row.map(
+          (cell) => `"${String(cell).replace(/"/g, '""')}"`,
+        );
+        csvContent += safeRow.join(",") + "\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `Sadhana_Report_${startDate}_to_${endDate}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert("Failed to fetch data for download.");
+    }
+  } catch (err) {
+    alert("Error downloading file ❌");
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Download Excel/CSV 📥";
+  }
+});
+*/
+
 document.getElementById("shareBtn").addEventListener("click", async () => {
   const date = document.getElementById("date").value;
   const btn = document.getElementById("shareBtn");
 
   if (!date) {
-    alert("Please select a date to share.");
+    showToast("Please select a date to share.", "failure");
     return;
   }
 
   btn.disabled = true;
   btn.textContent = "Fetching Data... ⏳";
 
+  // Create a date object from the input value to subtract a day.
+  const selectedDate = new Date(date + "T00:00:00");
+  selectedDate.setDate(selectedDate.getDate() - 1);
+
+  // Format it back to YYYY-MM-DD for the API request.
+  const year = selectedDate.getFullYear();
+  const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(selectedDate.getDate()).padStart(2, "0");
+  const dateToSend = `${year}-${month}-${day}`;
+
+  const finalDateToFetch = activeTracker === "sadhana" ? dateToSend : date;
+
   try {
     // Use the activeTracker variable to decide which data to fetch
+
     const res = await fetch(
-      `${API}?action=getData&tracker=${activeTracker}&date=${date}`,
+      `${API}?action=getData&tracker=${activeTracker}&date=${finalDateToFetch}`,
     );
     const response = await res.json();
 
     if (response.status === "not_found") {
-      alert("No data found for this date. Please submit first! ❌");
+      showToast("No data found for this date. Please submit first.", "info");
       btn.disabled = false;
-      btn.textContent = "Share on WhatsApp 💬";
+      btn.textContent = "Share 💬";
       return;
     }
 
-    let text = "";
+    // Format the date we are fetching data for, to display in the message.
+    const formattedDateForShare = formatDateIndian(finalDateToFetch);
+
+    let text = "Hare Krishna\n\n";
     if (activeTracker === "daily") {
-      text = `📊 *Daily Tracker - ${date}*\n\n`;
+      text += `*Daily Tracker - ${formattedDateForShare}*\n\n`;
       response.data.tasks.forEach((t) => {
-        let valStr = t.val === "Yes" ? "Yes ✅" : "No ❌";
+        let valStr = t.val === "Yes" ? "Yes" : "No";
         text += `• ${t.name}: ${valStr}\n`;
       });
-      text += `\n🔥 *Score:* ${response.data.score}`;
+      text += `\n*Score:* ${response.data.score}`;
     } else {
       // activeTracker === 'sadhana'
-      text = `📊 *Sadhana Report - ${date}*\n\n`;
+      text += `*Sadhana Report - ${formattedDateForShare}*\n\n`;
       const data = response.data;
       // Simple format as requested
       for (const [key, value] of Object.entries(data)) {
@@ -158,18 +428,24 @@ document.getElementById("shareBtn").addEventListener("click", async () => {
           const formattedKey = key
             .replace(/([A-Z])/g, " $1")
             .replace(/^./, (str) => str.toUpperCase());
-          text += `*${formattedKey}:* ${value}\n`;
+
+          let formattedValue = value;
+          if (key === "wakeUp" || key === "sleep" || key === "chantTime") {
+            formattedValue = formatTime12Hour(value);
+          }
+
+          text += `*${formattedKey}:* ${formattedValue}\n`;
         }
       }
     }
 
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
   } catch (error) {
-    alert("Error fetching data to share ❌");
+    showToast("Error fetching data to share.", "failure");
     console.error(error);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Share on WhatsApp 💬";
+    btn.textContent = "Share 💬";
   }
 });
 

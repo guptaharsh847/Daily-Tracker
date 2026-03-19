@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Daily Tracker</title>
 
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png" />
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -33,14 +34,14 @@
 
       <!-- Sadhana Tracker View -->
       <div id="sadhanaTrackerView" style="display: none">
-        <form id="sadhanaForm" class="tasks-container">
+        <form id="sadhanaForm" class="tasks-container sadhana-grid">
           <div class="form-group">
             <label for="wakeUp">Wake Up Time</label>
-            <input type="time" id="wakeUp" name="wakeUp" />
+            <input type="time" id="wakeUp" name="wakeUp" required />
           </div>
           <div class="form-group">
             <label for="sleep">Sleep Time</label>
-            <input type="time" id="sleep" name="sleep" />
+            <input type="time" id="sleep" name="sleep" required />
           </div>
           <div class="form-group">
             <label for="rounds">Rounds (Number)</label>
@@ -49,11 +50,18 @@
               id="rounds"
               name="rounds"
               placeholder="e.g., 16"
+              required
             />
           </div>
           <div class="form-group">
             <label for="chantTime">Chant Time (HH:MM:SS)</label>
-            <input type="time" id="chantTime" name="chantTime" step="1" />
+            <input
+              type="time"
+              id="chantTime"
+              name="chantTime"
+              step="1"
+              required
+            />
           </div>
           <div class="form-group">
             <label for="studyTime">Study Time (in mins)</label>
@@ -62,6 +70,7 @@
               id="studyTime"
               name="studyTime"
               placeholder="e.g., 60"
+              required
             />
           </div>
           <div class="form-group">
@@ -71,6 +80,7 @@
               id="readingTime"
               name="readingTime"
               placeholder="e.g., 30"
+              required
             />
           </div>
           <div class="form-group">
@@ -80,6 +90,7 @@
               id="bookName"
               name="bookName"
               placeholder="e.g., Bhagavad Gita"
+              required
             />
           </div>
           <div class="form-group">
@@ -89,6 +100,7 @@
               id="lectureTime"
               name="lectureTime"
               placeholder="e.g., 45"
+              required
             />
           </div>
           <div class="form-group">
@@ -98,6 +110,7 @@
               id="lectureName"
               name="lectureName"
               placeholder="e.g., The nature of the soul"
+              required
             />
           </div>
           <div class="form-group">
@@ -110,15 +123,33 @@
             ></textarea>
           </div>
         </form>
+
+        <!-- <div class="download-section">
+          <h3>Download Sadhana Report</h3>
+          <div class="download-flex">
+            <div class="form-group">
+              <label for="startDate">Start Date</label>
+              <input type="date" id="startDate" />
+            </div>
+            <div class="form-group">
+              <label for="endDate">End Date</label>
+              <input type="date" id="endDate" />
+            </div>
+          </div>
+          <button class="btn btn-download" id="downloadBtn" type="button">
+            Download Excel/CSV 📥
+          </button>
+        </div> -->
       </div>
 
       <div class="actions">
         <button class="btn btn-submit" id="submitBtn">Submit ✅</button>
-        <button class="btn btn-share" id="shareBtn">
-          Share on WhatsApp 💬
-        </button>
+        <button class="btn btn-view" id="viewBtn">View Data 👁️</button>
+        <button class="btn btn-share" id="shareBtn">Share 💬</button>
       </div>
     </div>
+
+    <div id="toastContainer"></div>
 
     <script src="script.js"></script>
   </body>
